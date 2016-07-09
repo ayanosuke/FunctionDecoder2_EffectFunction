@@ -17,20 +17,13 @@
 #include <avr/eeprom.h>	 //required by notifyCVRead() function if enabled below
 
 //FX効果
-//panta spark
-unsigned char ptn1[10][4]={{'I',0,5,1},{'O',1,5,1},  {'O',1,0,1},{'O',1,5,1},  {'O',1,0,1},{'O',1,5,1},  {'O',1,0,1},{'O',3,255,1},{'O',1,0,1},{'E',0,0,1}};
-unsigned char ptn2[10][4]={{'I',0,5,1},{'O',1,255,1},{'O',1,0,1},{'O',1,255,1},{'O',1,0,1},{'O',1,255,1},{'O',1,0,1},{'O',3,255,1},{'O',1,0,1},{'E',0,0,1}};
-unsigned char ptn3[8][4]= {{'I',0,5,1},{'O',1,5,1},  {'O',1,0,1},{'O',1,5,1},  {'O',1,0,1},{'O',1,5,1},  {'O',1,0,1},{'E',0,0,1}};
-unsigned char ptn4[6][4]= {{'I',0,5,1},{'O',1,5,1},  {'O',1,0,1},{'O',1,5,1},  {'O',1,0,1},{'E',0,0,1}};
-unsigned char ptn5[4][4]= {{'I',0,5,1},{'O',3,255,1},{'O',1,0,1},{'E',0,0,1}};
-
 //Cmd,Time,Val,Frq
 //I:初期状態,O:出力,S:スイープ,L:ループ,E:終了
-//unsigned char ptn1[2][4]={{'I',0,255,1},{'E',0,255,1}}; //10ms すぐ点灯
-//unsigned char ptn2[3][4]={{'I',0,5,1},{'S',100,255,1},{'E',0,255,1}}; //10ms もやっと点灯
-//unsigned char ptn3[4][4]={{'I',0,5,1},{'S',50,255,1},{'S',50,5,1},{'L',0,5,1}}; //10ms 三角波
-//unsigned char ptn4[6][4]={{'I',0,0,1},{'O',10,255,1},{'O',10,125,1},{'O',10,255,1},{'O',10,80,1},{'L',0,0,1}}; // ランダム
-//unsigned char ptn5[6][4]={{'I',0,0,1},{'S',50,255,1},{'S',50,0,1},{'S',50,128,1},{'S',50,0,1},{'L',0,0,1}};//マーズライト
+unsigned char ptn1[2][4]={{'I',0,255,1},{'E',0,255,1}}; //10ms すぐ点灯
+unsigned char ptn2[3][4]={{'I',0,5,1},{'S',100,255,1},{'E',0,255,1}}; //10ms もやっと点灯
+unsigned char ptn3[4][4]={{'I',0,5,1},{'S',50,255,1},{'S',50,5,1},{'L',0,5,1}}; //10ms 三角波
+unsigned char ptn4[6][4]={{'I',0,0,1},{'O',10,255,1},{'O',10,125,1},{'O',10,255,1},{'O',10,80,1},{'L',0,0,1}}; // ランダム
+unsigned char ptn5[6][4]={{'I',0,0,1},{'S',50,255,1},{'S',50,0,1},{'S',50,128,1},{'S',50,0,1},{'L',0,0,1}};//マーズライト
 unsigned char ptn6[4][4]={{'I',0,0,1},{'O',30,255,1},{'S',20,128,1},{'L',0,0,1}};//フラッシュライト
 unsigned char ptn7[4][4]={{'I',0,0,1},{'O',20,255,1},{'O',80,0,1},{'L',0,0,1}}; //シングルパルスストロボ
 unsigned char ptn8[6][4]={{'I',0,0,1},{'O',10,255,1},{'O',20,0,1},{'O',10,255,1},{'O',60,0,1},{'L',0,0,1}}; //ダブルパルスストロボ
@@ -344,160 +337,6 @@ void loop() {
 
 
 //---------------------------------------------------------------------
-// PantographSpark効果ステートマシン
-// 10ms周期で起動
-// unsigned chart ptn[4][5]{{'I',0,0,1},{'S',20,255,1},{'S',40,0,1},{'E',0,0,1}};
-//---------------------------------------------------------------------
-void PantaSparkEffect_Control(){
-  static char state = 0;    // ステート
-  static char adr = 0;      // アドレス
-  static int timeUp = 0;    // 時間
-  static float delt_v = 0;  // 100msあたりの増加量 
-  static float pwmRef =0;
-  static int nextSparkWait =0;  // 点滅間隔 10ms
-  long randNumber = 0;
-  long sparkSel = 0;
-    
-  if(gState_F0 == 0){ // F0 OFF
-    state = 0; 
-    adr = 0;
-    timeUp = 0;
-    pwmRef = 0;
-    TCCR1 = 0<<CS10;  //分周比をセット
-    //       OCR1B有効   high出力　
-    GTCCR = 0 << PWM1B | 0 << COM1B0;
-    analogWrite(O4, 0);
-    digitalWrite(O4, LOW);               // 消灯
-  }
-
-  S00:  
-  switch(state){
-    case 0: // S00:idel
-      if(gState_F0 >0){ // F1 ON
-        adr = 0;
-        timeUp = 0;
-        pwmRef = 0;
-        TCCR1 = 1<<CS10;  //分周比をセット
-        //       OCR1B有効   high出力　
-        GTCCR = 1 << PWM1B | 2 << COM1B0;
-        analogWrite(O4, 0);
-        state = 1;
-        goto S00;     // 100ms待たずに再度ステートマシーンに掛ける
-      }
-      break;
-
-    case 1: // スピードによる点灯間隔算出 max 128 step?
-        if(gSpeedRef <= 10){
-            state = 0;
-        } else if(gSpeedRef >= 11 && gSpeedRef <=30 ){
-            nextSparkWait = random(300, 500);   // 3000ms - 5000ms
-            state = 2;
-        } else if(gSpeedRef >= 31 && gSpeedRef <=50 ){
-            nextSparkWait = random(100, 300);   // 1000ms - 3000ms          
-            state = 2;
-        } else if(gSpeedRef >= 51 && gSpeedRef <=70 ){
-            nextSparkWait = random(50, 100);   // 500ms - 1000ms          
-            state = 2;
-        } else if(gSpeedRef >= 71 && gSpeedRef <=100 ){
-            nextSparkWait = random(1, 50);   // 10ms - 500ms            
-            state = 2;
-        }else if(gSpeedRef >= 101 && gSpeedRef <=128 ){
-            nextSparkWait = random(1, 5);   // 10ms - 50ms            
-            state = 2;
-        }
-
-        break;
-        
-    case 2: // 点灯トリガ
-
-      sparkSel = random(1,6);
-      switch(sparkSel){
-        case 1:
-          ptn = ptn1;
-          break;
-        case 2:
-          ptn = ptn2;
-          break;
-        case 3:
-          ptn = ptn3;
-          break;        
-        case 4:
-          ptn = ptn4;
-          break;
-        case 5:
-          ptn = ptn5;
-          break;
-        case 6:
-          ptn = ptn6;
-          break;
-        default:
-          ptn = ptn1;
-          break;
-      }
-      adr = 0; 
-      state = 4;
-      goto S00;   // 10ms待たずに再度ステートマシーンに掛ける
-      break;
-
-    case 3: // 次のスパークまでのウエイト処理
-
-      nextSparkWait--;
-      if(nextSparkWait <= 0){
-        state = 1;
-      }
-      break;
-      
-    case 4: // S01:コマンド処理
-        if( ptn[adr][0]=='I'){ // I:初期化
-          timeUp = ptn[adr][1];
-          pwmRef = ptn[adr][2];
-          delt_v = 0; // 変化量0
-          TCCR1 = ptn[adr][3]<<CS10;  //分周比をセット
-          analogWrite(O4, (unsigned char)pwmRef); // 0〜255            
-          adr++;
-          state = 4;
-          goto S00;   // 10ms待たずに再度ステートマシーンに掛ける
-        } else if( ptn[adr][0]=='E'){ // E:end
-          state = 3;
-        } else if( ptn[adr][0]=='O' ){ // O:出力
-          timeUp = ptn[adr][1];
-          pwmRef = ptn[adr][2];
-          TCCR1 = ptn[adr][3]<<CS10;  //分周比をセット
-          delt_v = 0;
-          state = 5;          
-        } else if( ptn[adr][0]=='S' ){ // S:sweep
-          timeUp = ptn[adr][1];
-          TCCR1 = ptn[adr][3]<<CS10;  //分周比をセット      
-          delt_v = (ptn[adr][2]-pwmRef)/timeUp;  // 変化量を算出
-          state = 5;
-        }
-      break;
-      
-    case 5: // S02:時間カウント
-      timeUp--;
-      pwmRef = pwmRef + delt_v;
-      if(pwmRef<=0){            // 下限、上限リミッタ
-          pwmRef = 0;
-      } else if(pwmRef>=255){
-          pwmRef = 255;
-      }
-      analogWrite(O4, (unsigned char)pwmRef); // 0〜255         
- 
-      if( timeUp <= 0 ){
-        adr ++;
-        state = 4;  //次のコマンドへ
-      }
-      break;
-      
-      default:
-      break;
-  }
-}
-
-
-
-
-//---------------------------------------------------------------------
 // FX効果ステートマシン
 // 10ms周期で起動
 // unsigned chart ptn[4][5]{{'I',0,0,1},{'S',20,255,1},{'S',40,0,1},{'E',0,0,1}};
@@ -710,8 +549,8 @@ void HeadLight_Control()
 
 
 //MorseCode_Control();
-//FXeffect_Control(); 
-PantaSparkEffect_Control();
+
+FXeffect_Control(); // ★★
 
 //---------------------------------------------------------------------
 // PWMによるLED調光
@@ -777,34 +616,34 @@ PantaSparkEffect_Control();
 #endif
 
 // F1 受信時の処理
-#if 0
+//#if 
   if(gState_F1 == 0){
     digitalWrite(O1, LOW);
   } else {
     digitalWrite(O1, HIGH);
-    ptn=ptn1;
+    ptn=ptn6;
   }
-#endif
+//#endif
 
 // F2 受信時の処理
-#if 0
+//#if 0
   if(gState_F2 == 0){                   // DCS50KのF2は1shotしか光らないので、コメントアウト
     digitalWrite(O2, LOW);  
   } else {
     digitalWrite(O2, HIGH);
     ptn=ptn7;
   }
-#endif
+//#endif
 
 // F3 受信時の処理
-#if 0
+//#if 0
   if(gState_F3 == 0){
     digitalWrite(O3, LOW);
   } else {
     digitalWrite(O3, HIGH);
     ptn=ptn7;
   }
-#endif
+//#endif
 
 //F3 受信時の処理　変数を覗く
 #if 0
@@ -823,7 +662,7 @@ PantaSparkEffect_Control();
 #endif
 
 // F4 を押下でFX効果を次々に変える（デモ用）
-#if 0
+//#if 0
   if(gState_F4 == 0){
     if(prev==1){
         prev = 0;
@@ -865,7 +704,7 @@ PantaSparkEffect_Control();
     default:
     break;
   }
-#endif
+//#endif
 
 }
 
