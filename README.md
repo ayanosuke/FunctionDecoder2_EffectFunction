@@ -1,9 +1,6 @@
 # Arduino_SmileFunctionDecoder2 for Effect Function<br>
-SmileFunctionDecoder2 (AYA002-2)用のKATO E7系E723-1ファンクッションデコーダスケッチです。<br>
+SmileFunctionDecoder2 (AYA002-2)用のエフェクトファンクッションデコーダスケッチです。<br>
 <br>
 デフォルトのアドレス3<br>
-ヘッドライト F0でON/OFF 前進で点灯<br>
-テールライト F0でON/OFF 後進で点灯<br>
-室内灯 F3でON/OFF<br>
-車掌室 F4でON/OFF<br>
+// O1:F1 でON/OFF<br>// O2:F2 でON/OFF<br>// O3:F3 でON/OFF<br>// O4:ヘッドライト F0でON/OFF F4でFX効果切り替え<br>
 <br>
